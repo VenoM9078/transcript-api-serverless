@@ -97,7 +97,7 @@ module.exports = async (req, res) => {
 
     if (!file) {
       // No file provided
-      return res.status(400).json({ message: "No file provided" });
+      return res.status(400).json({ message: curl_command });
     }
 
     const sourceFile = file.path;
