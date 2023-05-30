@@ -70,6 +70,10 @@ const upload = multer({
 module.exports = async (req, res) => {
   const { url } = req.body;
 
+  if (url == "") {
+    throw new Error("No YouTube URL was provided");
+  }
+
   try {
     // validate the URL
     if (!ytdl.validateURL(url)) {
