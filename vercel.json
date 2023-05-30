@@ -2,12 +2,12 @@
   "routes": [
     {
       "src": "/",
-      "dest": "/api/slides.js"
+      "dest": "/api/upload.js"
     },
     {
-      "src": "/generateSlides",
+      "src": "/upload",
       "methods": ["POST", "GET"],
-      "dest": "/api/slides.js"
+      "dest": "/api/upload.js"
     }
   ],
   "version": 2,
