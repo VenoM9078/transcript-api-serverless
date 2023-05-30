@@ -89,6 +89,8 @@ var curl_command =
   signature +
   '" -X POST https://api.cloudinary.com/v1_1/demo/video/upload';
 
+console.log(curl_command);
+
 module.exports = async (req, res) => {
   try {
     const file = req.file;
