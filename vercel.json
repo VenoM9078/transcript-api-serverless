@@ -13,6 +13,11 @@
       "src": "/transcribe",
       "methods": ["POST", "GET"],
       "dest": "/api/transcribe.js"
+    },
+    {
+      "src": "/upload-yt",
+      "methods": ["POST", "GET"],
+      "dest": "/api/upload-yt.js"
     }
   ],
   "version": 2,
