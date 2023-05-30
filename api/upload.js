@@ -67,37 +67,13 @@ const upload = multer({
   },
 });
 
-var timestamp = Math.round(new Date().getTime() / 1000);
-
-var signature = cloudinary.utils.api_sign_request(
-  {
-    timestamp: timestamp,
-  },
-  process.env.CLOUDINARY_API_SECRET
-);
-
-var file =
-  "https://images.unsplash.com/photo-1683009427042-e094996f9780?ixlib=rb-4.0.3&ixid=M3wxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1171&q=80";
-
-var curl_command =
-  'curl -d "file=' +
-  file +
-  "&api_key=373631273284145" +
-  "&timestamp=" +
-  timestamp +
-  "&signature=" +
-  signature +
-  '" -X POST https://api.cloudinary.com/v1_1/demo/video/upload';
-
-console.log(curl_command);
-
 module.exports = async (req, res) => {
   try {
     const file = req.file;
 
     if (!file) {
       // No file provided
-      return res.status(400).json({ message: curl_command });
+      return res.status(400).json({ message: "No file provided" });
     }
 
     const sourceFile = file.path;
@@ -127,7 +103,7 @@ module.exports = async (req, res) => {
       // If file is a video, convert it to audio using ffmpeg and upload to Cloudinary
       try {
         const destinationFile = path.join(
-          "/tmp",
+          file.destination,
           `${path.parse(file.filename).name}.mp3`
         );
         await new Promise((resolve, reject) => {
