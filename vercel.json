@@ -2,12 +2,17 @@
   "routes": [
     {
       "src": "/",
-      "dest": "/api/upload.js"
+      "dest": "/api/home.js"
     },
     {
       "src": "/upload",
       "methods": ["POST", "GET"],
       "dest": "/api/upload.js"
+    },
+    {
+      "src": "/transcribe",
+      "methods": ["POST", "GET"],
+      "dest": "/api/transcribe.js"
     }
   ],
   "version": 2,
