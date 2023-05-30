@@ -68,6 +68,10 @@ const upload = multer({
 });
 
 module.exports = async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).json({ message: "Use POST" });
+    return;
+  }
   const { url } = req.body;
 
   if (url == "") {
