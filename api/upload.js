@@ -14,7 +14,7 @@ const YoutubeMp3Downloader = require("youtube-mp3-downloader");
 const urlParser = require("url");
 const ytdl = require("ytdl-core");
 
-fs.chmodSync(ffmpegPath, 0o755);
+// fs.chmodSync(ffmpegPath, 0o755);
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
