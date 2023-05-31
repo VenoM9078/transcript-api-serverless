@@ -6,13 +6,15 @@ const cloudinary = require("cloudinary").v2;
 const path = require("path");
 const mime = require("mime-types");
 const ffmpeg = require("fluent-ffmpeg");
-const ffmpegPath = path.join(__dirname, "..", "ffmpeg", "bin", "ffmpeg.exe");
+const ffmpegPath = path.join(__dirname, "..", "ffmpeg-linux", "ffmpeg");
 const axios = require("axios");
 const FormData = require("form-data");
 const { Configuration, OpenAIApi } = require("openai");
 const YoutubeMp3Downloader = require("youtube-mp3-downloader");
 const urlParser = require("url");
 const ytdl = require("ytdl-core");
+
+fs.chmodSync(ffmpegPath, 0o755);
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
