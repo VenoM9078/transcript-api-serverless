@@ -68,86 +68,98 @@ const upload = multer({
 });
 
 module.exports = async (req, res) => {
-  try {
-    const file = req.file;
-
-    if (!file) {
-      // No file provided
-      return res.status(400).json({ message: "No file provided" });
+  upload.single("file")(req, res, async function (err) {
+    if (err instanceof multer.MulterError) {
+      // A Multer error occurred when uploading.
+      return res.status(500).json({ message: "Multer error: " + err.message });
+    } else if (err) {
+      // An unknown error occurred when uploading.
+      return res.status(500).json({ message: "Unknown error: " + err.message });
     }
+    try {
+      const file = req.file;
 
-    const sourceFile = file.path;
-    const extension = path.extname(file.originalname).toLowerCase();
-    const mimeType = mime.lookup(sourceFile);
-
-    if (mimeType && mimeType.startsWith("audio/")) {
-      // If file is already an audio file, upload it directly to Cloudinary
-      try {
-        const uploadResult = await cloudinary.uploader.upload(sourceFile, {
-          resource_type: "video",
-        });
-        const uploadedFile = {
-          url: uploadResult.secure_url,
-          fileName: file.filename,
-        };
-        return res.status(200).json({ file: uploadedFile });
-      } catch (err) {
-        console.error(err);
-        return res.status(500).json({ message: "Failed to upload file" });
+      if (!file) {
+        // No file provided
+        return res.status(400).json({ message: "No file provided" });
       }
-    } else if (
-      mimeType &&
-      mimeType.startsWith("video/") &&
-      [".mp4", ".mov", ".avi"].includes(extension)
-    ) {
-      // If file is a video, convert it to audio using ffmpeg and upload to Cloudinary
-      try {
-        const destinationFile = path.join(
-          file.destination,
-          `${path.parse(file.filename).name}.mp3`
-        );
-        await new Promise((resolve, reject) => {
-          ffmpeg(sourceFile)
-            .setFfmpegPath(ffmpegPath)
-            .output(destinationFile)
-            .audioCodec("libmp3lame")
-            .on("end", resolve)
-            .on("error", reject)
-            .run();
-        });
 
-        const uploadResult = await cloudinary.uploader.upload(destinationFile, {
-          resource_type: "video",
-        });
-        const uploadedFile = {
-          url: uploadResult.secure_url,
-          fileName: `${path.parse(file.filename).name}.mp3`,
-        };
+      const sourceFile = file.path;
+      const extension = path.extname(file.originalname).toLowerCase();
+      const mimeType = mime.lookup(sourceFile);
 
-        // Remove the converted audio file from the server
-        fs.unlink(destinationFile, (err) => {
-          if (err) console.error(err);
-        });
+      if (mimeType && mimeType.startsWith("audio/")) {
+        // If file is already an audio file, upload it directly to Cloudinary
+        try {
+          const uploadResult = await cloudinary.uploader.upload(sourceFile, {
+            resource_type: "video",
+          });
+          const uploadedFile = {
+            url: uploadResult.secure_url,
+            fileName: file.filename,
+          };
+          return res.status(200).json({ file: uploadedFile });
+        } catch (err) {
+          console.error(err);
+          return res.status(500).json({ message: "Failed to upload file" });
+        }
+      } else if (
+        mimeType &&
+        mimeType.startsWith("video/") &&
+        [".mp4", ".mov", ".avi"].includes(extension)
+      ) {
+        // If file is a video, convert it to audio using ffmpeg and upload to Cloudinary
+        try {
+          const destinationFile = path.join(
+            file.destination,
+            `${path.parse(file.filename).name}.mp3`
+          );
+          await new Promise((resolve, reject) => {
+            ffmpeg(sourceFile)
+              .setFfmpegPath(ffmpegPath)
+              .output(destinationFile)
+              .audioCodec("libmp3lame")
+              .on("end", resolve)
+              .on("error", reject)
+              .run();
+          });
 
-        fs.unlink(sourceFile, (err) => {
-          if (err) console.error(err);
-        });
+          const uploadResult = await cloudinary.uploader.upload(
+            destinationFile,
+            {
+              resource_type: "video",
+            }
+          );
+          const uploadedFile = {
+            url: uploadResult.secure_url,
+            fileName: `${path.parse(file.filename).name}.mp3`,
+          };
 
-        return res.status(200).json({ file: uploadedFile });
-      } catch (err) {
-        console.error(err);
-        return res
-          .status(500)
-          .json({ message: "Failed to convert and upload file" });
+          // Remove the converted audio file from the server
+          fs.unlink(destinationFile, (err) => {
+            if (err) console.error(err);
+          });
+
+          fs.unlink(sourceFile, (err) => {
+            if (err) console.error(err);
+          });
+
+          return res.status(200).json({ file: uploadedFile });
+        } catch (err) {
+          console.error(err);
+          return res
+            .status(500)
+            .json({ message: "Failed to convert and upload file" });
+        }
+      } else {
+        // File type not supported
+        return res.status(400).json({
+          message: `Invalid file type. You uploaded a ${file.mimetype} file`,
+        });
       }
-    } else {
-      // File type not supported
-      return res.status(400).json({
-        message: `Invalid file type. You uploaded a ${file.mimetype} file`,
-      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
     }
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Internal server error" });
-  }
+  });
 };
