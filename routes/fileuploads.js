@@ -62,7 +62,6 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage: storage,
-  fileFilter,
   limits: {
     fileSize: 200 * 1024 * 1024, // 200 MB in bytes
   },
