@@ -22,6 +22,11 @@ app.use(express.json());
 
 app.use("/api", fileUploadRoute);
 
+app.use(function (err, req, res, next) {
+  console.error(err.stack);
+  res.status(500).send("Something broke!");
+});
+
 app.listen(port, () => {
   console.log("Backend Server is Running on Port 5000`");
 });
