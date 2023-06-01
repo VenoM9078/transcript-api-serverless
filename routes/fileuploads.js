@@ -112,8 +112,11 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       console.log("File is a video file");
       // If file is a video, convert it to audio using ffmpeg and upload to Cloudinary
       try {
+        // const ffmpegPath = path.join(__dirname, "..", "ffmpeg-linux", "ffmpeg");
+
         console.log("Converting video to audio");
         const destinationFile = path.join(
+          __dirname,
           "..",
           "files",
           `${path.parse(file.filename).name}.mp3`
