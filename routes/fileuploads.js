@@ -29,7 +29,7 @@ cloudinary.config({
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, "..", "..", "src", "assets", "files"));
+    cb(null, path.join(__dirname, "..", "files"));
   },
   filename: function (req, file, cb) {
     cb(
@@ -107,7 +107,8 @@ router.post("/upload", async (req, res) => {
       // If file is a video, convert it to audio using ffmpeg and upload to Cloudinary
       try {
         const destinationFile = path.join(
-          "/tmp",
+          "..",
+          "files",
           `${path.parse(file.filename).name}.mp3`
         );
         await new Promise((resolve, reject) => {
@@ -183,15 +184,7 @@ router.post("/upload-yt", async (req, res) => {
 
     // create a temporary file to store the MP3 data
 
-    const tempFile = path.join(
-      __dirname,
-      "..",
-      "..",
-      "src",
-      "assets",
-      "youtube_urls",
-      "temp.mp3"
-    );
+    const tempFile = path.join(__dirname, "..", "audio_files", "temp.mp3");
 
     // download and convert the audio stream to MP3
     await new Promise((resolve, reject) => {
@@ -242,14 +235,7 @@ router.post("/transcribe", async (req, res) => {
     const filename = url.split("/").pop();
     const response = await axios.get(url, { responseType: "arraybuffer" });
     const buffer = Buffer.from(response.data, "utf-8");
-    const filePath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "src",
-      "assets",
-      "transcribeAudio"
-    );
+    const filePath = path.join(__dirname, "..", "transcribed_audio");
     fs.writeFileSync(`${filePath}/${filename}`, buffer);
     const formData = new FormData();
     formData.append("file", fs.createReadStream(`${filePath}/${filename}`));
