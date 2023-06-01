@@ -258,19 +258,22 @@ router.post("/upload-yt", async (req, res) => {
 router.post("/transcribe", async (req, res) => {
   try {
     const { url, prompt } = req.body;
-    console.log(url, prompt);
+    console.log("Received transcribe request for URL:", url);
+    console.log("Prompt:", prompt);
+
     const filename = url.split("/").pop();
     const response = await axios.get(url, { responseType: "arraybuffer" });
     const buffer = Buffer.from(response.data, "utf-8");
+
     const filePath = path.join(__dirname, "..", "transcribed_audio");
     fs.writeFileSync(`${filePath}/${filename}`, buffer);
+
     const formData = new FormData();
     formData.append("file", fs.createReadStream(`${filePath}/${filename}`));
     formData.append("model", "whisper-1");
 
-    // console.log(formData);
+    console.log("Transcribing audio...");
 
-    console.log(`${filePath}/${filename}`);
     const resp = await openai.createTranscription(
       fs.createReadStream(`${filePath}/${filename}`),
       "whisper-1",
@@ -278,16 +281,22 @@ router.post("/transcribe", async (req, res) => {
       "vtt"
     );
     const transcription = resp.data;
+
     fs.unlink(`${filePath}/${filename}`, (err) => {
-      if (err) console.error(err);
+      if (err) {
+        console.error("Error deleting mp3 file:", err);
+      } else {
+        console.log("MP3 file deleted");
+      }
     });
 
-    res.json({ transcription });
+    console.log("Audio transcription:", transcription);
 
-    // Delete the mp3 file
+    res.json({ transcription });
   } catch (error) {
-    console.error(error);
+    console.error("Error transcribing audio:", error);
     res.status(500).json({ message: "Error transcribing audio" });
   }
 });
+
 module.exports = router;
