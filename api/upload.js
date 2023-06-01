@@ -113,6 +113,7 @@ module.exports = async (req, res) => {
         // If file is a video, convert it to audio using ffmpeg and upload to Cloudinary
         try {
           // Upload the original video file to Cloudinary
+
           const videoUploadResult = await cloudinary.uploader.upload(
             sourceFile,
             {
@@ -137,13 +138,16 @@ module.exports = async (req, res) => {
               .on("end", resolve)
               .on("error", reject)
               .run();
+          }).catch((err) => {
+            throw new Error(`FFmpeg error: ${err.message}`);
           });
-          const audioUploadResult = await cloudinary.uploader.upload(
-            destinationFile,
-            {
+          const audioUploadResult = await cloudinary.uploader
+            .upload(destinationFile, {
               resource_type: "video",
-            }
-          );
+            })
+            .catch((err) => {
+              throw new Error(`Cloudinary audio upload error: ${err.message}`);
+            });
           const audioFile = {
             url: audioUploadResult.secure_url,
             fileName: `${path.parse(file.filename).name}.mp3`,
