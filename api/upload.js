@@ -112,6 +112,19 @@ module.exports = async (req, res) => {
       ) {
         // If file is a video, convert it to audio using ffmpeg and upload to Cloudinary
         try {
+          // Upload the original video file to Cloudinary
+          const videoUploadResult = await cloudinary.uploader.upload(
+            sourceFile,
+            {
+              resource_type: "video",
+            }
+          );
+          const videoFile = {
+            url: videoUploadResult.secure_url,
+            fileName: file.filename,
+          };
+
+          // Convert the video to audio and upload the audio to Cloudinary
           const destinationFile = path.join(
             file.destination,
             `${path.parse(file.filename).name}.mp3`
@@ -125,15 +138,14 @@ module.exports = async (req, res) => {
               .on("error", reject)
               .run();
           });
-
-          const uploadResult = await cloudinary.uploader.upload(
+          const audioUploadResult = await cloudinary.uploader.upload(
             destinationFile,
             {
               resource_type: "video",
             }
           );
-          const uploadedFile = {
-            url: uploadResult.secure_url,
+          const audioFile = {
+            url: audioUploadResult.secure_url,
             fileName: `${path.parse(file.filename).name}.mp3`,
           };
 
@@ -146,7 +158,10 @@ module.exports = async (req, res) => {
             if (err) console.error(err);
           });
 
-          return res.status(200).json({ file: uploadedFile });
+          // Return the URLs of both the video and audio files
+          return res
+            .status(200)
+            .json({ videoFile: videoFile, audioFile: audioFile });
         } catch (err) {
           console.error(err);
           return res
