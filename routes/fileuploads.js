@@ -124,7 +124,10 @@ router.post("/upload", upload.single("file"), async (req, res) => {
             .output(destinationFile)
             .audioCodec("libmp3lame")
             .on("end", resolve)
-            .on("error", reject)
+            .on("error", (err) => {
+              console.error("Error from ffmpeg", err);
+              reject(err);
+            })
             .run();
         });
 
