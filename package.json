@@ -23,6 +23,7 @@
     "nodemon": "^2.0.21",
     "openai": "^3.2.1",
     "path": "^0.12.7",
+    "streamifier": "^0.1.1",
     "url": "^0.11.0",
     "youtube-mp3-downloader": "^0.7.11",
     "ytdl-core": "^4.11.3"
