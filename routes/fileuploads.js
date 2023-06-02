@@ -186,57 +186,84 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
 router.post("/upload-yt", async (req, res) => {
   if (req.method !== "POST") {
-    res.status(405).json({ message: "Use POST" });
+    res.status(405).json({ message: "Method not allowed. Use POST" });
     return;
   }
-  const { url } = req.body;
 
-  if (url == "") {
-    throw new Error("No YouTube URL was provided");
+  const { url } = req.body;
+  if (!url || url == "") {
+    res.status(400).json({ message: "No YouTube URL was provided" });
+    return;
   }
 
   try {
     // validate the URL
     if (!ytdl.validateURL(url)) {
-      throw new Error("Invalid YouTube URL");
+      res.status(400).json({ message: "Invalid YouTube URL" });
+      return;
     }
-
-    console.log(ytdl.validateURL(url));
+    console.log(`URL validation passed: ${url}`);
 
     // get the video info
-    const videoInfo = await ytdl.getInfo(url);
+    let videoInfo;
+    try {
+      videoInfo = await ytdl.getInfo(url);
+      console.log(`Video information retrieved successfully`);
+    } catch (err) {
+      console.error(`Error getting video information: ${err}`);
+      throw new Error("Error getting video information");
+    }
 
     // get the highest quality audio stream
     const audioStream = ytdl.filterFormats(videoInfo.formats, "audioonly")[0];
+    console.log(`Audio stream obtained successfully`);
 
     // create a temporary file to store the MP3 data
-
     const tempFile = path.join(__dirname, "..", "audio_files", "temp.mp3");
+    console.log(`Temporary file location: ${tempFile}`);
 
     // download and convert the audio stream to MP3
-    await new Promise((resolve, reject) => {
-      ffmpeg(audioStream.url)
-        .noVideo()
-        .outputFormat("mp3")
-        .outputOptions("-vn")
-        .on("error", (err) => {
-          console.error(`Error converting video to MP3: ${err}`);
-          reject(err);
-        })
-        .on("end", () => {
-          console.log(`Successfully converted video to MP3: ${tempFile}`);
-          resolve();
-        })
-        .save(tempFile);
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        ffmpeg(audioStream.url)
+          .noVideo()
+          .outputFormat("mp3")
+          .outputOptions("-vn")
+          .on("error", (err) => {
+            console.error(`Error converting video to MP3: ${err}`);
+            reject(err);
+          })
+          .on("end", () => {
+            console.log(`Successfully converted video to MP3: ${tempFile}`);
+            resolve();
+          })
+          .save(tempFile);
+      });
+    } catch (err) {
+      console.error(`Error during audio conversion: ${err}`);
+      throw new Error("Error during audio conversion");
+    }
 
     // upload the MP3 file to Cloudinary
-    const cloudinaryResult = await cloudinary.uploader.upload(tempFile, {
-      resource_type: "video",
-    });
+    let cloudinaryResult;
+    try {
+      cloudinaryResult = await cloudinary.uploader.upload(tempFile, {
+        resource_type: "video",
+      });
+      console.log(`File uploaded successfully to Cloudinary`);
+    } catch (err) {
+      console.error(`Error uploading to Cloudinary: ${err}`);
+      throw new Error("Error uploading to Cloudinary");
+    }
 
     // delete the temporary file
-    fs.unlinkSync(tempFile);
+    try {
+      fs.unlinkSync(tempFile);
+      console.log(`Temporary file deleted`);
+    } catch (err) {
+      console.error(`Error deleting temporary file: ${err}`);
+      throw new Error("Error deleting temporary file");
+    }
 
     // create a signed URL for the uploaded file
     const signedUrl = cloudinary.url(cloudinaryResult.public_id, {
@@ -244,14 +271,15 @@ router.post("/upload-yt", async (req, res) => {
       format: "mp3",
       secure: true,
     });
-
-    console.log(url);
+    console.log(`Signed URL: ${signedUrl}`);
 
     // return the signed URL
     res.status(200).json({ url: signedUrl });
   } catch (err) {
     console.error(`Error processing YouTube URL: ${err}`);
-    res.status(500).send("Error processing YouTube URL");
+    res
+      .status(500)
+      .json({ message: "Error processing YouTube URL", error: err.toString() });
   }
 });
 
