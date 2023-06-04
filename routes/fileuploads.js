@@ -429,6 +429,8 @@ router.post("/transcribe", async (req, res) => {
       modifiedTranscriptions += adjustedTranscription + "\n\n";
     }
 
+    console.log(modifiedTranscriptions, originalTranscriptions);
+
     res.json({
       originalTranscriptions: originalTranscriptions,
       modifiedTranscriptions: modifiedTranscriptions,
