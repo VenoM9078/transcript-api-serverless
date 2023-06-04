@@ -309,7 +309,8 @@ router.post("/upload-yt", async (req, res) => {
       .json({ message: "Error processing YouTube URL", error: err.toString() });
   }
 });
-lDuration = 0;
+
+totalDuration = 0;
 
 router.post("/transcribe", async (req, res) => {
   console.log("Transcribe endpoint hit");
