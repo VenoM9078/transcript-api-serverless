@@ -431,7 +431,7 @@ router.post("/transcribe", async (req, res) => {
 
     console.log(modifiedTranscriptions, originalTranscriptions);
 
-    res.json({
+    res.status(200).json({
       originalTranscriptions: originalTranscriptions,
       modifiedTranscriptions: modifiedTranscriptions,
     });
@@ -440,6 +440,7 @@ router.post("/transcribe", async (req, res) => {
     res.status(500).json({ message: "General error", error: error.toString() });
   }
 });
+
 router.post("/downloadSrt", (req, res) => {
   const { transcription } = req.body;
 
