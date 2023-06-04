@@ -285,6 +285,8 @@ router.post("/upload-yt", async (req, res) => {
 
 router.post("/transcribe", async (req, res) => {
   try {
+    console.log("Request body:", req.body);
+
     const { urls, prompt } = req.body; // We are now expecting an array of URLs.
 
     console.log(req.body, urls, prompt);
