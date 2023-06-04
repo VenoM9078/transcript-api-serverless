@@ -285,46 +285,49 @@ router.post("/upload-yt", async (req, res) => {
 
 router.post("/transcribe", async (req, res) => {
   try {
-    const { url, prompt } = req.body;
-    console.log("Received transcribe request for URL:", url);
-    console.log("Prompt:", prompt);
+    const { urls, prompt } = req.body; // We are now expecting an array of URLs.
+    let transcriptions = [];
 
-    const filename = url.split("/").pop();
-    const response = await axios.get(url, { responseType: "arraybuffer" });
-    const buffer = Buffer.from(response.data, "utf-8");
+    for (let url of urls) {
+      console.log(url, prompt);
+      const filename = url.split("/").pop();
+      const response = await axios.get(url, { responseType: "arraybuffer" });
+      const buffer = Buffer.from(response.data, "utf-8");
 
-    const filePath = path.join(__dirname, "..", "transcribed_audio");
-    fs.writeFileSync(`${filePath}/${filename}`, buffer);
+      const filePath = path.join(
+        __dirname,
+        "..",
+        "..",
+        "src",
+        "assets",
+        "transcribeAudio"
+      );
+      fs.writeFileSync(`${filePath}/${filename}`, buffer);
 
-    const formData = new FormData();
-    formData.append("file", fs.createReadStream(`${filePath}/${filename}`));
-    formData.append("model", "whisper-1");
+      const formData = new FormData();
+      formData.append("file", fs.createReadStream(`${filePath}/${filename}`));
+      formData.append("model", "whisper-1");
 
-    console.log("Transcribing audio...");
+      console.log(`${filePath}/${filename}`);
+      const resp = await openai.createTranscription(
+        fs.createReadStream(`${filePath}/${filename}`),
+        "whisper-1",
+        prompt,
+        "vtt"
+      );
+      const transcription = resp.data;
+      fs.unlink(`${filePath}/${filename}`, (err) => {
+        if (err) console.error(err);
+      });
 
-    const resp = await openai.createTranscription(
-      fs.createReadStream(`${filePath}/${filename}`),
-      "whisper-1",
-      prompt,
-      "vtt"
-    );
-    const transcription = resp.data;
+      // Add each transcription to the array
+      transcriptions.push(transcription);
+    }
 
-    fs.unlink(`${filePath}/${filename}`, (err) => {
-      if (err) {
-        console.error("Error deleting mp3 file:", err);
-      } else {
-        console.log("MP3 file deleted");
-      }
-    });
-
-    console.log("Audio transcription:", transcription);
-
-    res.json({ transcription });
+    res.json({ transcriptions });
   } catch (error) {
-    console.error("Error transcribing audio:", error);
+    console.error(error);
     res.status(500).json({ message: "Error transcribing audio" });
   }
 });
-
 module.exports = router;
