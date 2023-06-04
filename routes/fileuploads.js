@@ -363,9 +363,8 @@ router.post("/transcribe", async (req, res) => {
 
       // Parse WEBVTT file and adjust timestamps for modified transcription
       const lines = transcription.split("\n");
+      const timeRegexp = /(\d+):(\d+):(\d+).(\d+) --> (\d+):(\d+):(\d+).(\d+)/;
       const adjustedLines = lines.map((line) => {
-        const timeRegexp =
-          /(\d+):(\d+):(\d+).(\d+) --> (\d+):(\d+):(\d+).(\d+)/;
         const match = line.match(timeRegexp);
         if (match) {
           let [
