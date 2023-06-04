@@ -284,13 +284,13 @@ router.post("/upload-yt", async (req, res) => {
 });
 
 router.post("/transcribe", async (req, res) => {
+  const { urls, prompt } = req.body; // We are now expecting an array of URLs.
+
+  console.log("Request body:", req.body);
+
+  console.log(req.body, urls, prompt);
+
   try {
-    console.log("Request body:", req.body);
-
-    const { urls, prompt } = req.body; // We are now expecting an array of URLs.
-
-    console.log(req.body, urls, prompt);
-
     if (!Array.isArray(urls) || urls.length === 0) {
       return res.status(400).json({ message: "No URLs provided" });
     }
@@ -328,7 +328,7 @@ router.post("/transcribe", async (req, res) => {
     res.json({ transcriptions });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error transcribing audio" });
+    res.status(500).json({ message: "Error transcribing audio", url: urls });
   }
 });
 module.exports = router;
