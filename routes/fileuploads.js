@@ -302,7 +302,8 @@ router.post("/transcribe", async (req, res) => {
       return res.status(400).json({ message: "No URLs provided" });
     }
 
-    let transcriptions = "";
+    let originalTranscriptions = [];
+    let modifiedTranscriptions = "";
     for (let url of urls) {
       if (!url) {
         console.log("URL is undefined");
@@ -357,7 +358,10 @@ router.post("/transcribe", async (req, res) => {
         if (err) console.error(err);
       });
 
-      // Parse WEBVTT file and adjust timestamps
+      // Keep the original transcription
+      originalTranscriptions.push(transcription);
+
+      // Parse WEBVTT file and adjust timestamps for modified transcription
       const lines = transcription.split("\n");
       const adjustedLines = lines.map((line) => {
         const timeRegexp =
@@ -423,15 +427,16 @@ router.post("/transcribe", async (req, res) => {
         totalDuration = endTime;
       }
 
-      transcriptions += adjustedTranscription + "\n\n";
+      modifiedTranscriptions += adjustedTranscription + "\n\n";
     }
 
-    res.json({ transcriptions });
+    res.json({ originalTranscriptions, modifiedTranscriptions });
   } catch (error) {
     console.error("General error:", error);
     res.status(500).json({ message: "General error", error: error.toString() });
   }
 });
+
 router.post("/downloadSrt", async (req, res) => {
   const { transcription } = req.body;
 
