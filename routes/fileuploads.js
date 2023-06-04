@@ -213,13 +213,15 @@ router.post("/upload-yt", async (req, res) => {
       throw new Error("Error getting video information");
     }
 
-    // get the highest quality audio stream
+    // get the highest quality audio and video streams
     const audioStream = ytdl.filterFormats(videoInfo.formats, "audioonly")[0];
-    console.log(`Audio stream obtained successfully`);
+    const videoStream = ytdl.filterFormats(videoInfo.formats, "medium")[0];
 
-    // create a temporary file to store the MP3 data
-    const tempFile = path.join(__dirname, "..", "audio_files", "temp.mp3");
-    console.log(`Temporary file location: ${tempFile}`);
+    console.log(`Audio and video streams obtained successfully`);
+
+    // create a temporary files to store the MP3 and video data
+    const tempAudioFile = path.join(__dirname, "..", "audio_files", "temp.mp3");
+    const tempVideoFile = path.join(__dirname, "..", "video_files", "temp.mp4");
 
     // download and convert the audio stream to MP3
     try {
@@ -227,53 +229,79 @@ router.post("/upload-yt", async (req, res) => {
         ffmpeg(audioStream.url)
           .noVideo()
           .outputFormat("mp3")
-          .outputOptions("-vn")
           .on("error", (err) => {
             console.error(`Error converting video to MP3: ${err}`);
             reject(err);
           })
           .on("end", () => {
-            console.log(`Successfully converted video to MP3: ${tempFile}`);
+            console.log(
+              `Successfully converted video to MP3: ${tempAudioFile}`
+            );
             resolve();
           })
-          .save(tempFile);
+          .save(tempAudioFile);
+      });
+
+      // download video
+      await new Promise((resolve, reject) => {
+        ytdl(url)
+          .pipe(fs.createWriteStream(tempVideoFile))
+          .on("finish", () => {
+            console.log(`Successfully downloaded video: ${tempVideoFile}`);
+            resolve();
+          })
+          .on("error", (err) => {
+            console.error(`Error downloading video: ${err}`);
+            reject(err);
+          });
       });
     } catch (err) {
-      console.error(`Error during audio conversion: ${err}`);
-      throw new Error("Error during audio conversion");
+      console.error(`Error during audio/video conversion: ${err}`);
+      throw new Error("Error during audio/video conversion");
     }
 
-    // upload the MP3 file to Cloudinary
-    let cloudinaryResult;
+    // upload the MP3 and video files to Cloudinary
+    let audioCloudinaryResult, videoCloudinaryResult;
     try {
-      cloudinaryResult = await cloudinary.uploader.upload(tempFile, {
+      audioCloudinaryResult = await cloudinary.uploader.upload(tempAudioFile, {
         resource_type: "video",
       });
-      console.log(`File uploaded successfully to Cloudinary`);
+
+      videoCloudinaryResult = await cloudinary.uploader.upload(tempVideoFile, {
+        resource_type: "video",
+      });
+
+      console.log(`Files uploaded successfully to Cloudinary`);
     } catch (err) {
       console.error(`Error uploading to Cloudinary: ${err}`);
       throw new Error("Error uploading to Cloudinary");
     }
 
-    // delete the temporary file
+    // delete the temporary files
     try {
-      fs.unlinkSync(tempFile);
-      console.log(`Temporary file deleted`);
+      fs.unlinkSync(tempAudioFile);
+      fs.unlinkSync(tempVideoFile);
+      console.log(`Temporary files deleted`);
     } catch (err) {
-      console.error(`Error deleting temporary file: ${err}`);
-      throw new Error("Error deleting temporary file");
+      console.error(`Error deleting temporary files: ${err}`);
+      throw new Error("Error deleting temporary files");
     }
 
-    // create a signed URL for the uploaded file
-    const signedUrl = cloudinary.url(cloudinaryResult.public_id, {
-      resource_type: "video",
-      format: "mp3",
-      secure: true,
-    });
-    console.log(`Signed URL: ${signedUrl}`);
+    // create a signed URL for the uploaded files
+    const audioFile = {
+      url: audioCloudinaryResult.secure_url,
+      fileName: "temp.mp3",
+    };
 
-    // return the signed URL
-    res.status(200).json({ url: signedUrl });
+    const videoFile = {
+      url: videoCloudinaryResult.secure_url,
+      fileName: "temp.mp4",
+    };
+
+    console.log(`Signed URLs: ${audioFile.url}, ${videoFile.url}`);
+
+    // return the signed URLs
+    res.status(200).json({ audioFile: audioFile, videoFile: videoFile });
   } catch (err) {
     console.error(`Error processing YouTube URL: ${err}`);
     res
@@ -281,7 +309,7 @@ router.post("/upload-yt", async (req, res) => {
       .json({ message: "Error processing YouTube URL", error: err.toString() });
   }
 });
-let totalDuration = 0;
+lDuration = 0;
 
 router.post("/transcribe", async (req, res) => {
   console.log("Transcribe endpoint hit");
