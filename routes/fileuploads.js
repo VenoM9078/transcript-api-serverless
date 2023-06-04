@@ -429,7 +429,10 @@ router.post("/transcribe", async (req, res) => {
       modifiedTranscriptions += adjustedTranscription + "\n\n";
     }
 
-    res.json({ originalTranscriptions, modifiedTranscriptions });
+    res.json({
+      originalTranscriptions: originalTranscriptions,
+      modifiedTranscriptions: modifiedTranscriptions,
+    });
   } catch (error) {
     console.error("General error:", error);
     res.status(500).json({ message: "General error", error: error.toString() });
