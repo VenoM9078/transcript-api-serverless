@@ -282,6 +282,8 @@ router.post("/upload-yt", async (req, res) => {
       .json({ message: "Error processing YouTube URL", error: err.toString() });
   }
 });
+let totalDuration = 0;
+
 router.post("/transcribe", async (req, res) => {
   console.log("Transcribe endpoint hit");
 
@@ -299,7 +301,7 @@ router.post("/transcribe", async (req, res) => {
       return res.status(400).json({ message: "No URLs provided" });
     }
 
-    let transcriptions = [];
+    let transcriptions = "";
     for (let url of urls) {
       if (!url) {
         console.log("URL is undefined");
@@ -354,7 +356,73 @@ router.post("/transcribe", async (req, res) => {
         if (err) console.error(err);
       });
 
-      transcriptions.push(transcription);
+      // Parse WEBVTT file and adjust timestamps
+      const lines = transcription.split("\n");
+      const adjustedLines = lines.map((line) => {
+        const timeRegexp =
+          /(\d+):(\d+):(\d+).(\d+) --> (\d+):(\d+):(\d+).(\d+)/;
+        const match = line.match(timeRegexp);
+        if (match) {
+          let [
+            _,
+            startHour,
+            startMinute,
+            startSecond,
+            startMillisecond,
+            endHour,
+            endMinute,
+            endSecond,
+            endMillisecond,
+          ] = match;
+          let startTime =
+            parseInt(startHour) * 3600 +
+            parseInt(startMinute) * 60 +
+            parseInt(startSecond) +
+            parseInt(startMillisecond) / 1000;
+          let endTime =
+            parseInt(endHour) * 3600 +
+            parseInt(endMinute) * 60 +
+            parseInt(endSecond) +
+            parseInt(endMillisecond) / 1000;
+
+          startTime += totalDuration;
+          endTime += totalDuration;
+
+          // Convert time to hh:mm:ss.mmm format
+          const pad = (num, size) => ("000" + num).slice(size * -1);
+          const timeToStr = (time) => {
+            const hours = Math.floor(time / 3600);
+            const minutes = Math.floor(time / 60) % 60;
+            const seconds = Math.floor(time % 60);
+            const milliseconds = time.toFixed(3).slice(-3);
+
+            return `${pad(hours, 2)}:${pad(minutes, 2)}:${pad(
+              seconds,
+              2
+            )}.${pad(milliseconds, 3)}`;
+          };
+
+          return `${timeToStr(startTime)} --> ${timeToStr(endTime)}`;
+        }
+
+        return line;
+      });
+
+      const adjustedTranscription = adjustedLines.join("\n");
+
+      // Set totalDuration to endTime of the last cue
+      const lastLine = adjustedLines[adjustedLines.length - 1];
+      const lastTimeMatch = lastLine.match(timeRegexp);
+      if (lastTimeMatch) {
+        const endTime =
+          parseFloat(lastTimeMatch[5]) * 3600 +
+          parseFloat(lastTimeMatch[6]) * 60 +
+          parseFloat(lastTimeMatch[7]) +
+          parseFloat(lastTimeMatch[8]) / 1000;
+        totalDuration = endTime;
+      }
+
+      transcriptions += adjustedTranscription + "\n\n";
     }
 
     res.json({ transcriptions });
