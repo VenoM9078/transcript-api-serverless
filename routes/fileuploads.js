@@ -436,8 +436,7 @@ router.post("/transcribe", async (req, res) => {
     res.status(500).json({ message: "General error", error: error.toString() });
   }
 });
-
-router.post("/downloadSrt", async (req, res) => {
+router.post("/downloadSrt", (req, res) => {
   const { transcription } = req.body;
 
   if (!transcription) {
@@ -458,25 +457,39 @@ router.post("/downloadSrt", async (req, res) => {
 
   fs.createReadStream(vttFilePath)
     .pipe(vtt2srt())
-    .pipe(fs.createWriteStream(srtFilePath));
+    .pipe(fs.createWriteStream(srtFilePath))
+    .on("finish", () => {
+      let uploadPromise = new Promise((resolve, reject) => {
+        cloudinary.uploader.upload(
+          srtFilePath,
+          {
+            resource_type: "raw",
+          },
+          function (error, result) {
+            if (error) {
+              console.error(error); // log the error for debugging
+              reject({ message: "Cloudinary upload error" });
+            } else if (!result || !result.url) {
+              reject({ message: "No result or URL from Cloudinary" });
+            } else {
+              // Delete the temporary files
+              fs.unlinkSync(vttFilePath);
+              fs.unlinkSync(srtFilePath);
 
-  // Upload to Cloudinary and return the URL
-  let result = await cloudinary.uploader.upload(
-    srtFilePath,
-    {
-      resource_type: "raw",
-    },
-    function (error, result) {
-      if (error)
-        return res.status(500).json({ message: "Cloudinary upload error" });
+              resolve({ srt_file_url: result.url });
+            }
+          }
+        );
+      });
 
-      // Delete the temporary files
-      fs.unlinkSync(vttFilePath);
-      fs.unlinkSync(srtFilePath);
-
-      return res.json({ srt_file_url: result.url });
-    }
-  );
+      uploadPromise
+        .then(({ srt_file_url }) => {
+          res.json({ srt_file_url });
+        })
+        .catch((error) => {
+          res.status(500).json(error);
+        });
+    });
 });
 
 module.exports = router;
