@@ -328,7 +328,9 @@ router.post("/transcribe", async (req, res) => {
     res.json({ transcriptions });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error transcribing audio", url: urls });
+    res
+      .status(500)
+      .json({ message: "Error transcribing this audio", url: urls });
   }
 });
 module.exports = router;
