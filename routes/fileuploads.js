@@ -114,6 +114,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         const videoUploadResult = await cloudinary.uploader.upload(sourceFile, {
           resource_type: "video",
         });
+        console.log("Video upload result", videoUploadResult); // Add this line
         const videoFile = {
           url: videoUploadResult.secure_url,
           fileName: file.filename,
