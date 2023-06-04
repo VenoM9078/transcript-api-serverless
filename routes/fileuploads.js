@@ -13,7 +13,8 @@ const { Configuration, OpenAIApi } = require("openai");
 const YoutubeMp3Downloader = require("youtube-mp3-downloader");
 const urlParser = require("url");
 const ytdl = require("ytdl-core");
-
+const streamifier = require("streamifier");
+const vtt2srt = require("node-vtt-to-srt");
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -430,6 +431,47 @@ router.post("/transcribe", async (req, res) => {
     console.error("General error:", error);
     res.status(500).json({ message: "General error", error: error.toString() });
   }
+});
+router.post("/downloadSrt", async (req, res) => {
+  const { transcription } = req.body;
+
+  if (!transcription) {
+    return res.status(400).json({ message: "No transcription provided" });
+  }
+
+  // Create the "srts" directory if it doesn't exist
+  const dirPath = path.join(__dirname, "..", "srts");
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath);
+  }
+
+  // Convert the transcription from VTT to SRT and write to a file
+  const vttFilePath = path.join(dirPath, "transcription.vtt");
+  const srtFilePath = path.join(dirPath, "transcription.srt");
+
+  fs.writeFileSync(vttFilePath, transcription);
+
+  fs.createReadStream(vttFilePath)
+    .pipe(vtt2srt())
+    .pipe(fs.createWriteStream(srtFilePath));
+
+  // Upload to Cloudinary and return the URL
+  let result = await cloudinary.uploader.upload(
+    srtFilePath,
+    {
+      resource_type: "raw",
+    },
+    function (error, result) {
+      if (error)
+        return res.status(500).json({ message: "Cloudinary upload error" });
+
+      // Delete the temporary files
+      fs.unlinkSync(vttFilePath);
+      fs.unlinkSync(srtFilePath);
+
+      return res.json({ srt_file_url: result.url });
+    }
+  );
 });
 
 module.exports = router;
