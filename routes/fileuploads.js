@@ -286,6 +286,12 @@ router.post("/upload-yt", async (req, res) => {
 router.post("/transcribe", async (req, res) => {
   try {
     const { urls, prompt } = req.body; // We are now expecting an array of URLs.
+
+    console.log(req.body, urls, prompt);
+
+    if (!Array.isArray(urls) || urls.length === 0) {
+      return res.status(400).json({ message: "No URLs provided" });
+    }
     let transcriptions = [];
 
     for (let url of urls) {
@@ -294,14 +300,7 @@ router.post("/transcribe", async (req, res) => {
       const response = await axios.get(url, { responseType: "arraybuffer" });
       const buffer = Buffer.from(response.data, "utf-8");
 
-      const filePath = path.join(
-        __dirname,
-        "..",
-        "..",
-        "src",
-        "assets",
-        "transcribeAudio"
-      );
+      const filePath = path.join(__dirname, "..", "transcribed_audio");
       fs.writeFileSync(`${filePath}/${filename}`, buffer);
 
       const formData = new FormData();
