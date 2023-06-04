@@ -282,26 +282,49 @@ router.post("/upload-yt", async (req, res) => {
       .json({ message: "Error processing YouTube URL", error: err.toString() });
   }
 });
-
 router.post("/transcribe", async (req, res) => {
-  const { urls, prompt } = req.body; // We are now expecting an array of URLs.
+  console.log("Transcribe endpoint hit");
 
+  if (!req.body) {
+    console.log("Request body is undefined");
+    return res.status(400).json({ message: "Request body is undefined" });
+  }
+
+  const { urls, prompt } = req.body;
   console.log("Request body:", req.body);
-
-  console.log(req.body, urls, prompt);
 
   try {
     if (!Array.isArray(urls) || urls.length === 0) {
+      console.log("No URLs provided");
       return res.status(400).json({ message: "No URLs provided" });
     }
+
     let transcriptions = [];
-
     for (let url of urls) {
-      console.log(url, prompt);
-      const filename = url.split("/").pop();
-      const response = await axios.get(url, { responseType: "arraybuffer" });
-      const buffer = Buffer.from(response.data, "utf-8");
+      if (!url) {
+        console.log("URL is undefined");
+        return res.status(400).json({ message: "URL is undefined" });
+      }
 
+      console.log("Processing URL:", url);
+
+      let filename;
+      try {
+        filename = url.split("/").pop();
+      } catch (err) {
+        console.error("Error splitting URL:", err);
+        return res.status(500).json({ message: "Error splitting URL" });
+      }
+
+      let response;
+      try {
+        response = await axios.get(url, { responseType: "arraybuffer" });
+      } catch (err) {
+        console.error("Error getting file:", err);
+        return res.status(500).json({ message: "Error getting file" });
+      }
+
+      const buffer = Buffer.from(response.data, "utf-8");
       const filePath = path.join(__dirname, "..", "transcribed_audio");
       fs.writeFileSync(`${filePath}/${filename}`, buffer);
 
@@ -309,28 +332,36 @@ router.post("/transcribe", async (req, res) => {
       formData.append("file", fs.createReadStream(`${filePath}/${filename}`));
       formData.append("model", "whisper-1");
 
-      console.log(`${filePath}/${filename}`);
-      const resp = await openai.createTranscription(
-        fs.createReadStream(`${filePath}/${filename}`),
-        "whisper-1",
-        prompt,
-        "vtt"
-      );
+      console.log(`File path: ${filePath}/${filename}`);
+
+      let resp;
+      try {
+        resp = await openai.createTranscription(
+          fs.createReadStream(`${filePath}/${filename}`),
+          "whisper-1",
+          prompt,
+          "vtt"
+        );
+      } catch (err) {
+        console.error("Error creating transcription:", err);
+        return res
+          .status(500)
+          .json({ message: "Error creating transcription" });
+      }
+
       const transcription = resp.data;
       fs.unlink(`${filePath}/${filename}`, (err) => {
         if (err) console.error(err);
       });
 
-      // Add each transcription to the array
       transcriptions.push(transcription);
     }
 
     res.json({ transcriptions });
   } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "Error transcribing this audio", url: urls });
+    console.error("General error:", error);
+    res.status(500).json({ message: "General error", error: error.toString() });
   }
 });
+
 module.exports = router;
