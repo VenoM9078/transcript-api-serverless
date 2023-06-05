@@ -310,7 +310,7 @@ router.post("/upload-yt", async (req, res) => {
   }
 });
 
-totalDuration = 0;
+let totalDuration = 0;
 
 router.post("/transcribe", async (req, res) => {
   console.log("Transcribe endpoint hit");
