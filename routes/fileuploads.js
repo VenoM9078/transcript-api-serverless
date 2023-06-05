@@ -215,7 +215,10 @@ router.post("/upload-yt", async (req, res) => {
 
     // get the highest quality audio and video streams
     const audioStream = ytdl.filterFormats(videoInfo.formats, "audioonly")[0];
-    const videoStream = ytdl.filterFormats(videoInfo.formats, "medium")[0];
+    const videoStream = ytdl.filterFormats(
+      videoInfo.formats,
+      "audioandvideo"
+    )[0];
 
     console.log(`Audio and video streams obtained successfully`);
 
