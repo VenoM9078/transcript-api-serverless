@@ -233,6 +233,8 @@ router.post("/upload-yt", async (req, res) => {
         ffmpeg(audioStream.url)
           .noVideo()
           .outputFormat("mp3")
+          .audioCodec("libmp3lame")
+          .audioBitrate("64k") // Adjust the bitrate here
           .on("error", (err) => {
             console.error(`Error converting video to MP3: ${err}`);
             reject(err);
