@@ -132,6 +132,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
             .setFfmpegPath(ffmpegPath)
             .output(destinationFile)
             .audioCodec("libmp3lame")
+            .audioBitrate("64k") // Adjust the bitrate here
             .on("end", resolve)
             .on("error", (err) => {
               console.error("Error from ffmpeg", err);
