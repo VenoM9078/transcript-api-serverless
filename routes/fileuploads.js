@@ -7,6 +7,7 @@ const path = require("path");
 const mime = require("mime-types");
 const ffmpeg = require("fluent-ffmpeg");
 const ffmpegPath = path.join(__dirname, "..", "ffmpeg-linux", "ffmpeg");
+// const ffmpegPath = path.join(__dirname, "../ffmpeg-linux/ffmpeg");
 const axios = require("axios");
 const FormData = require("form-data");
 const { Configuration, OpenAIApi } = require("openai");
@@ -22,10 +23,17 @@ const openai = new OpenAIApi(configuration);
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+// cloudinary.config({
+//   cloud_name: "dldgy1k9c",
+//   api_key: "373631273284145",
+//   api_secret: "PMrfrrHZ_KgkCZ50MszJKFApDOI",
+// });
+
+// Configure Cloudinary
 cloudinary.config({
-  cloud_name: "dldgy1k9c",
-  api_key: "373631273284145",
-  api_secret: "PMrfrrHZ_KgkCZ50MszJKFApDOI",
+  cloud_name: "dwyzguwaj",
+  api_key: "115296989125151",
+  api_secret: "XBs9DxEtZDNC1vNQYgbgjWbXsmU",
 });
 
 const storage = multer.diskStorage({
@@ -68,7 +76,7 @@ const upload = multer({
   },
 });
 
-router.post("/upload", upload.single("file"), async (req, res) => {
+router.post("/upload", upload.single("files"), async (req, res) => {
   try {
     console.log("Upload endpoint hit");
     const file = req.file;
@@ -128,6 +136,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
           `${path.parse(file.filename).name}.mp3`
         );
         await new Promise((resolve, reject) => {
+          console.log(`FFmpeg Path is: ${ffmpegPath}`);
           ffmpeg(sourceFile)
             .setFfmpegPath(ffmpegPath)
             .output(destinationFile)

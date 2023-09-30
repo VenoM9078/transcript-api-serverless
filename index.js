@@ -16,7 +16,7 @@ app.use(function (req, res, next) {
   next();
 });
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5040;
 
 app.use(express.json());
 
@@ -28,5 +28,5 @@ app.use(function (err, req, res, next) {
 });
 
 app.listen(port, () => {
-  console.log("Backend Server is Running on Port 5000`");
+  console.log("Backend Server is Running on Port 5040`");
 });
