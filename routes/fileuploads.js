@@ -6,8 +6,8 @@ const cloudinary = require("cloudinary").v2;
 const path = require("path");
 const mime = require("mime-types");
 const ffmpeg = require("fluent-ffmpeg");
-const ffmpegPath = path.join(__dirname, "..", "ffmpeg-linux", "ffmpeg");
-// const ffmpegPath = path.join(__dirname, "../ffmpeg-linux/ffmpeg");
+// const ffmpegPath = path.join(__dirname, "..", "ffmpeg-linux", "ffmpeg");
+const ffmpegPath = path.join(__dirname, "../ffmpeg-MacOs/ffmpeg");
 const axios = require("axios");
 const FormData = require("form-data");
 const { Configuration, OpenAIApi } = require("openai");
@@ -16,6 +16,9 @@ const urlParser = require("url");
 const ytdl = require("ytdl-core");
 const streamifier = require("streamifier");
 const vtt2srt = require("node-vtt-to-srt");
+const { log } = require("console");
+require("dotenv").config();
+
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -76,6 +79,7 @@ const upload = multer({
   },
 });
 
+// Upload the File to Cloudinary and Convert to MP3 and send the mp3 cloudinary back
 router.post("/upload", upload.single("files"), async (req, res) => {
   try {
     console.log("Upload endpoint hit");
@@ -191,6 +195,61 @@ router.post("/upload", upload.single("files"), async (req, res) => {
     console.error("Unhandled error in /upload endpoint", err);
     return res.status(500).json({ message: "Internal server error" });
   }
+});
+
+
+
+router.post("/transcribe", async (req, res) => {
+  console.log("Transcribe endpoint hit");
+
+  if (
+    !req.body ||
+    !req.body.url ||
+    typeof req.body.url.audioFile === "undefined"
+  ) {
+    console.log("Request body is undefined or missing audioFile");
+    return res
+      .status(400)
+      .json({ message: "Request body is undefined or missing audioFile" });
+  }
+
+  const { prompt } = req.body;
+  const audioUrl = req.body.url.audioFile.url;
+  console.log("This is coming from REACT:", req.body);
+  console.log("This is only the URL of audio:", audioUrl);
+
+  let response;
+  try {
+    console.log(`About to download audio file from: ${audioUrl}`);
+
+    response = await axios.get(audioUrl, { responseType: "arraybuffer" });
+  } catch (err) {
+    console.error("Error downloading audio file:", err);
+    return res.status(500).json({ message: "Error downloading audio file" });
+  }
+
+  const filename = "tempAudioFile.mp3"; // Using a temporary file name
+  const filePath = path.join(__dirname, "../files", filename);
+  fs.writeFileSync(filePath, response.data);
+
+  let transcriptionResponse;
+  try {
+    const audioStream = fs.createReadStream(filePath);
+    transcriptionResponse = await openai.createTranscription(
+      audioStream,
+      "whisper-1",
+      prompt,
+      "vtt"
+    );
+  } catch (err) {
+    console.error("Error creating transcription:", err);
+    return res.status(500).json({ message: "Error creating transcription" });
+  } finally {
+    // Always delete temporary file
+    fs.unlinkSync(filePath);
+  }
+
+  res.status(200).json({ transcription: transcriptionResponse.data });
 });
 
 router.post("/upload-yt", async (req, res) => {
@@ -323,75 +382,6 @@ router.post("/upload-yt", async (req, res) => {
       .status(500)
       .json({ message: "Error processing YouTube URL", error: err.toString() });
   }
-});
-
-router.post("/transcribe", async (req, res) => {
-  console.log("Transcribe endpoint hit");
-
-  if (!req.body) {
-    console.log("Request body is undefined");
-    return res.status(400).json({ message: "Request body is undefined" });
-  }
-
-  const { url, prompt } = req.body;
-  console.log("Request body:", req.body);
-
-  if (!url) {
-    console.log("URL is undefined");
-    return res.status(400).json({ message: "URL is undefined" });
-  }
-
-  console.log("Processing URL:", url);
-
-  let filename;
-  try {
-    filename = url.split("/").pop();
-  } catch (err) {
-    console.error("Error splitting URL:", err);
-    return res.status(500).json({ message: "Error splitting URL" });
-  }
-
-  let response;
-  try {
-    response = await axios.get(url, { responseType: "arraybuffer" });
-  } catch (err) {
-    console.error("Error getting file:", err);
-    return res.status(500).json({ message: "Error getting file" });
-  }
-
-  const buffer = Buffer.from(response.data, "utf-8");
-  const filePath = path.join(__dirname, "..", "files");
-  fs.writeFileSync(`${filePath}/${filename}`, buffer);
-
-  const formData = new FormData();
-  formData.append("file", fs.createReadStream(`${filePath}/${filename}`));
-  formData.append("model", "whisper-1");
-
-  console.log(`File path: ${filePath}/${filename}`);
-
-  let resp;
-  try {
-    resp = await openai.createTranscription(
-      fs.createReadStream(`${filePath}/${filename}`),
-      "whisper-1",
-      prompt,
-      "vtt"
-    );
-  } catch (err) {
-    console.error("Error creating transcription:", err);
-    return res.status(500).json({ message: "Error creating transcription" });
-  }
-
-  const transcription = resp.data;
-  fs.unlink(`${filePath}/${filename}`, (err) => {
-    if (err) console.error(err);
-  });
-
-  console.log(transcription);
-
-  res.status(200).json({
-    transcription: transcription,
-  });
 });
 
 router.post("/downloadSrt", (req, res) => {
