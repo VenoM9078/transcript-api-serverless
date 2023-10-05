@@ -26,18 +26,28 @@ const openai = new OpenAIApi(configuration);
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-// cloudinary.config({
-//   cloud_name: "dldgy1k9c",
-//   api_key: "373631273284145",
-//   api_secret: "PMrfrrHZ_KgkCZ50MszJKFApDOI",
-// });
+cloudinary.config({
+  cloud_name: "dldgy1k9c",
+  api_key: "373631273284145",
+  api_secret: "PMrfrrHZ_KgkCZ50MszJKFApDOI",
+});
 
 // Configure Cloudinary
-cloudinary.config({
-  cloud_name: "dwyzguwaj",
-  api_key: "115296989125151",
-  api_secret: "XBs9DxEtZDNC1vNQYgbgjWbXsmU",
-});
+// cloudinary.config({
+//   cloud_name: "dwyzguwaj",
+//   api_key: "115296989125151",
+//   api_secret: "XBs9DxEtZDNC1vNQYgbgjWbXsmU",
+// });
+
+//Method for Checking Duration of Video
+const checkAudioDuration = (filePath) => {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, function (err, metadata) {
+      if (err) reject(err);
+      else resolve(metadata.format.duration);
+    });
+  });
+};
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -121,23 +131,14 @@ router.post("/upload", upload.single("files"), async (req, res) => {
       [".mp4", ".mov", ".avi"].includes(extension)
     ) {
       console.log("File is a video file");
+      console.log("Video File is in: ", sourceFile);
       try {
-        console.log("Uploading video file to Cloudinary");
-        const videoUploadResult = await cloudinary.uploader.upload(sourceFile, {
-          resource_type: "video",
-        });
-        console.log("Video upload result", videoUploadResult); // Add this line
-        const videoFile = {
-          url: videoUploadResult.secure_url,
-          fileName: file.filename,
-        };
-
         console.log("Converting video to audio");
         const destinationFile = path.join(
           __dirname,
           "..",
           "files",
-          `${path.parse(file.filename).name}.mp3`
+          `${path.parse(sourceFile).name}.mp3`
         );
         await new Promise((resolve, reject) => {
           console.log(`FFmpeg Path is: ${ffmpegPath}`);
@@ -154,31 +155,94 @@ router.post("/upload", upload.single("files"), async (req, res) => {
             .run();
         });
 
-        console.log("Uploading converted file to Cloudinary");
-        const audioUploadResult = await cloudinary.uploader.upload(
-          destinationFile,
-          {
-            resource_type: "video",
+        // After converting video to audio
+        console.log("Checking Duration of this Audio File: ", destinationFile);
+        const duration = await checkAudioDuration(destinationFile);
+
+        if (duration > 600) {
+          // Upload the converted audio to Cloudinary first
+          const audioUploadResult = await cloudinary.uploader.upload(
+            destinationFile,
+            {
+              resource_type: "video",
+              format: "mp3",
+            }
+          );
+          const audioFile = {
+            url: audioUploadResult.secure_url,
+            // fileName: `${path.parse(sourceFile).name}.mp3`,
+            fileName: destinationFile,
+          };
+          console.log(
+            "This is the Converted Audio File URL from Cloudinary: ",
+            audioUploadResult.secure_url
+          );
+
+          // Send the Cloudinary URL to Flask API for chunking
+          try {
+            const chunkingResponse = await axios.post(
+              "http://127.0.0.1:8040/process_audio",
+              {
+                url: audioFile.url, // Sending mp3 Cloudinary URL
+              },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+            console.log("Response from Flask API:", chunkingResponse.data);
+            console.log("Success: Sending Response Back to REACT...");
+            return res.status(200).json({
+              videoFile: sourceFile,
+              audioFile: chunkingResponse.data,
+            });
+          } catch (err) {
+            console.error(
+              "Error sending URL to Flask API for chunking",
+              err.message
+            );
+            fs.unlink(destinationFile, (err) => {
+              console.log("error sending req to Flask so File is Deleted...");
+              if (err) console.error("Error deleting converted file", err);
+            });
+
+            fs.unlink(sourceFile, (err) => {
+              console.log("error sending req to Flask so File is Deleted...");
+              if (err) console.error("Error deleting original file", err);
+            });
+            return res.status(500).json({ message: "Failed to chunk file" });
           }
-        );
-        const audioFile = {
-          url: audioUploadResult.secure_url,
-          fileName: `${path.parse(file.filename).name}.mp3`,
-        };
+        } else {
+          console.log(
+            "File is Less then 10 Minutes so Uploading MP3 to CLoudinary"
+          );
+          const audioUploadResult = await cloudinary.uploader.upload(
+            destinationFile,
+            {
+              resource_type: "video",
+            }
+          );
+          const audioFile = {
+            url: audioUploadResult.secure_url,
+            fileName: `${path.parse(file.filename).name}.mp3`,
+          };
 
-        console.log("File converted and uploaded successfully", audioFile);
+          console.log("File converted and uploaded successfully", audioFile);
 
-        fs.unlink(destinationFile, (err) => {
-          if (err) console.error("Error deleting converted file", err);
-        });
+          fs.unlink(destinationFile, (err) => {
+            if (err) console.error("Error deleting converted file", err);
+          });
 
-        fs.unlink(sourceFile, (err) => {
-          if (err) console.error("Error deleting original file", err);
-        });
+          fs.unlink(sourceFile, (err) => {
+            if (err) console.error("Error deleting original file", err);
+          });
 
-        return res
-          .status(200)
-          .json({ videoFile: videoFile, audioFile: audioFile });
+          console.log("Success: Sending Response Back to REACT...");
+          return res
+            .status(200)
+            .json({ videoFile: sourceFile, audioFile: audioFile });
+        }
       } catch (err) {
         console.error("Error converting and uploading file", err);
         return res
@@ -197,59 +261,124 @@ router.post("/upload", upload.single("files"), async (req, res) => {
   }
 });
 
+// router.post("/transcribe", async (req, res) => {
+//   console.log("Transcribe endpoint hit");
 
+//   if (
+//     !req.body ||
+//     !req.body.url ||
+//     typeof req.body.url.audioFile === "undefined"
+//   ) {
+//     console.log("Request body is undefined or missing audioFile");
+//     return res
+//       .status(400)
+//       .json({ message: "Request body is undefined or missing audioFile" });
+//   }
 
+//   const { prompt } = req.body;
+//   const audioUrl = req.body.url.audioFile.url;
+//   console.log("This is coming from REACT:", req.body);
+//   console.log("This is only the URL of audio:", audioUrl);
+
+//   let response;
+//   try {
+//     console.log(`About to download audio file from: ${audioUrl}`);
+
+//     response = await axios.get(audioUrl, { responseType: "arraybuffer" });
+//   } catch (err) {
+//     console.error("Error downloading audio file:", err);
+//     return res.status(500).json({ message: "Error downloading audio file" });
+//   }
+
+//   const filename = "tempAudioFile.mp3"; // Using a temporary file name
+//   const filePath = path.join(__dirname, "../files", filename);
+//   fs.writeFileSync(filePath, response.data);
+
+//   let transcriptionResponse;
+//   try {
+//     const audioStream = fs.createReadStream(filePath);
+//     transcriptionResponse = await openai.createTranscription(
+//       audioStream,
+//       "whisper-1",
+//       prompt,
+//       "vtt"
+//     );
+//   } catch (err) {
+//     console.error("Error creating transcription:", err);
+//     return res.status(500).json({ message: "Error creating transcription" });
+//   } finally {
+//     // Always delete temporary file
+//     fs.unlinkSync(filePath);
+//   }
+
+//   res.status(200).json({ transcription: transcriptionResponse.data });
+// });
 router.post("/transcribe", async (req, res) => {
   console.log("Transcribe endpoint hit");
 
-  if (
-    !req.body ||
-    !req.body.url ||
-    typeof req.body.url.audioFile === "undefined"
-  ) {
-    console.log("Request body is undefined or missing audioFile");
-    return res
-      .status(400)
-      .json({ message: "Request body is undefined or missing audioFile" });
+  if (!req.body) {
+    console.log("Request body is undefined");
+    return res.status(400).json({ message: "Request body is undefined" });
   }
 
   const { prompt } = req.body;
-  const audioUrl = req.body.url.audioFile.url;
-  console.log("This is coming from REACT:", req.body);
-  console.log("This is only the URL of audio:", audioUrl);
 
-  let response;
-  try {
-    console.log(`About to download audio file from: ${audioUrl}`);
+  let audioUrls = [];
 
-    response = await axios.get(audioUrl, { responseType: "arraybuffer" });
-  } catch (err) {
-    console.error("Error downloading audio file:", err);
-    return res.status(500).json({ message: "Error downloading audio file" });
+  if (req.body.url && req.body.url.audioFile) {
+    // Single URL scenario
+    audioUrls.push(req.body.url);
+  } else if (req.body.urls && Array.isArray(req.body.urls)) {
+    // Multiple URL scenario
+    audioUrls = req.body.urls;
+  } else {
+    console.log("Neither single URL nor array of URLs provided");
+    return res.status(400).json({ message: "Invalid URL data provided" });
   }
 
-  const filename = "tempAudioFile.mp3"; // Using a temporary file name
-  const filePath = path.join(__dirname, "../files", filename);
-  fs.writeFileSync(filePath, response.data);
+  console.log("URLs received:", audioUrls);
 
-  let transcriptionResponse;
-  try {
-    const audioStream = fs.createReadStream(filePath);
-    transcriptionResponse = await openai.createTranscription(
-      audioStream,
-      "whisper-1",
-      prompt,
-      "vtt"
-    );
-  } catch (err) {
-    console.error("Error creating transcription:", err);
-    return res.status(500).json({ message: "Error creating transcription" });
-  } finally {
-    // Always delete temporary file
-    fs.unlinkSync(filePath);
+  let transcriptions = [];
+
+  for (const audioObj of audioUrls) {
+    const audioUrl = audioObj.audioFile.url;
+    console.log("Processing URL:", audioUrl);
+
+    let response;
+    try {
+      console.log(`About to download audio file from: ${audioUrl}`);
+      response = await axios.get(audioUrl, { responseType: "arraybuffer" });
+    } catch (err) {
+      console.error("Error downloading audio file:", err);
+      return res
+        .status(500)
+        .json({ message: `Error downloading audio file for URL: ${audioUrl}` });
+    }
+
+    const filename = `tempAudioFile_${Date.now()}.mp3`; // Using a timestamped temp file name
+    const filePath = path.join(__dirname, "../files", filename);
+    fs.writeFileSync(filePath, response.data);
+
+    let transcriptionResponse;
+    try {
+      const audioStream = fs.createReadStream(filePath);
+      transcriptionResponse = await openai.createTranscription(
+        audioStream,
+        "whisper-1",
+        prompt,
+        "vtt"
+      );
+      transcriptions.push(transcriptionResponse.data);
+    } catch (err) {
+      console.error("Error creating transcription:", err);
+      return res.status(500).json({ message: "Error creating transcription" });
+    } finally {
+      // Always delete temporary file
+      fs.unlinkSync(filePath);
+    }
   }
 
-  res.status(200).json({ transcription: transcriptionResponse.data });
+  res.status(200).json({ transcriptions });
 });
 
 router.post("/upload-yt", async (req, res) => {

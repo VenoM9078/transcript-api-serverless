@@ -126,3 +126,5 @@ dist
 .yarn/install-state.gz
 .pnp.*
 files/files-1696081219056.mp4
+*.mp3
+*.mp4
